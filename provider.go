@@ -102,7 +102,7 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 		if err != nil {
 			return nil, fmt.Errorf("invalid record %s: %w", rec.Name, err)
 		}
-		msg.Remove([]dns.RR{rr})
+		msg.RemoveName([]dns.RR{rr})
 	}
 	p.setTsig(&msg)
 
