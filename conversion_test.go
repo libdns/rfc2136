@@ -69,6 +69,21 @@ var testCases = map[dns.RR]libdns.Record{
 		Value: "1:2:3:4::",
 		TTL:   150 * time.Second,
 	},
+
+	&dns.RFC3597{
+		Hdr: dns.RR_Header{
+			Name:   "privateuse.example.com.",
+			Rrtype: 65534,
+			Class:  dns.ClassINET,
+			Ttl:    150,
+		},
+		Rdata: "0d10480001",
+	}: {
+		Type:  "TYPE65534",
+		Name:  "privateuse",
+		Value: `\# 5 0d10480001`,
+		TTL:   150 * time.Second,
+	},
 }
 
 func TestRecordFromRR(t *testing.T) {
