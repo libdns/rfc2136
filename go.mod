@@ -3,7 +3,7 @@ module github.com/libdns/rfc2136
 go 1.18
 
 require (
-	github.com/libdns/libdns v0.2.1
+	github.com/libdns/libdns v0.2.3
 	github.com/miekg/dns v1.1.49
 )
 
