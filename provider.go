@@ -3,9 +3,10 @@ package rfc2136
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/libdns/libdns"
 	"github.com/miekg/dns"
-	"time"
 )
 
 type Provider struct {

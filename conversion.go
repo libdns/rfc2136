@@ -2,11 +2,12 @@ package rfc2136
 
 import (
 	"fmt"
-	"github.com/libdns/libdns"
-	"github.com/miekg/dns"
+	"reflect"
 	"strings"
 	"time"
-	"reflect"
+
+	"github.com/libdns/libdns"
+	"github.com/miekg/dns"
 )
 
 func recordToRR(rec libdns.Record, zone string) (dns.RR, error) {

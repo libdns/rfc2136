@@ -1,11 +1,12 @@
 package rfc2136
 
 import (
-	"github.com/libdns/libdns"
-	"github.com/miekg/dns"
 	"net"
 	"testing"
 	"time"
+
+	"github.com/libdns/libdns"
+	"github.com/miekg/dns"
 )
 
 const zone = "example.com."
