@@ -80,7 +80,11 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 		}
 
 		for _, rr := range e.RR {
-			records = append(records, recordFromRR(rr, zone))
+			record, err := recordFromRR(rr, zone).Parse()
+			if err != nil {
+				return nil, fmt.Errorf("parse record: %w", err)
+			}
+			records = append(records, record)
 		}
 	}
 
@@ -97,7 +101,7 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 	for _, rec := range records {
 		rr, err := recordToRR(rec, zone)
 		if err != nil {
-			return nil, fmt.Errorf("invalid record %s: %w", rec.Name, err)
+			return nil, fmt.Errorf("invalid record %+v: %w", rec, err)
 		}
 		rrs = append(rrs, rr)
 	}
@@ -120,7 +124,7 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 	for _, rec := range records {
 		rr, err := recordToRR(rec, zone)
 		if err != nil {
-			return nil, fmt.Errorf("invalid record %s: %w", rec.Name, err)
+			return nil, fmt.Errorf("invalid record %+v: %w", rec, err)
 		}
 		msg.Insert([]dns.RR{rr})
 	}
@@ -137,11 +141,26 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 	msg := dns.Msg{}
 	msg.SetUpdate(zone)
 	for _, rec := range records {
+		libdnsRR := rec.RR()
+		if libdnsRR.Type == "" {
+			msg.RemoveName([]dns.RR{
+				&dns.ANY{
+					Hdr: dns.RR_Header{
+						Name: libdns.AbsoluteName(libdnsRR.Name, zone),
+					},
+				},
+			})
+			continue
+		}
 		rr, err := recordToRR(rec, zone)
 		if err != nil {
-			return nil, fmt.Errorf("invalid record %s: %w", rec.Name, err)
+			return nil, fmt.Errorf("invalid record %+v: %w", rec, err)
 		}
-		msg.Remove([]dns.RR{rr})
+		if libdnsRR.Data == "" {
+			msg.RemoveRRset([]dns.RR{rr})
+		} else {
+			msg.Remove([]dns.RR{rr})
+		}
 	}
 	p.setTsig(&msg)
 	if err := p.exchange(ctx, &msg); err != nil {

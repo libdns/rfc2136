@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,7 +17,9 @@ const zone = "example.com."
 var echString = "AEj+DQBEAQAgACAdd+scUi0IYFsXnUIU7ko2Nd9+F8M26pAGZVpz/KrWPgAEAAEAAWQVZWNoLXNpdGVzLmV4YW1wbGUubmV0AAA="
 var echBytes, _ = base64.StdEncoding.DecodeString(echString)
 
-var testCases = map[dns.RR]libdns.Record{
+var threeHundredChars string = strings.Repeat("a", 300)
+
+var testCases = map[dns.RR]libdns.RR{
 	&dns.TXT{
 		Hdr: dns.RR_Header{
 			Name:   "txt.example.com.",
@@ -26,10 +29,10 @@ var testCases = map[dns.RR]libdns.Record{
 		},
 		Txt: []string{"hello world"},
 	}: {
-		Type:  "TXT",
-		Name:  "txt",
-		Value: "\"hello world\"",
-		TTL:   220 * time.Second,
+		Type: "TXT",
+		Name: "txt",
+		Data: "hello world",
+		TTL:  220 * time.Second,
 	},
 
 	&dns.TXT{
@@ -39,12 +42,15 @@ var testCases = map[dns.RR]libdns.Record{
 			Class:  dns.ClassINET,
 			Ttl:    220,
 		},
-		Txt: []string{"hello", "world"},
+		Txt: []string{
+			strings.Join(strings.Split(threeHundredChars, "")[:255], ""),
+			strings.Join(strings.Split(threeHundredChars, "")[255:], ""),
+		},
 	}: {
-		Type:  "TXT",
-		Name:  "txt",
-		Value: "\"hello\" \"world\"",
-		TTL:   220 * time.Second,
+		Type: "TXT",
+		Name: "txt",
+		Data: threeHundredChars,
+		TTL:  220 * time.Second,
 	},
 
 	&dns.A{
@@ -56,10 +62,10 @@ var testCases = map[dns.RR]libdns.Record{
 		},
 		A: net.ParseIP("1.2.3.4"),
 	}: {
-		Type:  "A",
-		Name:  "a",
-		Value: "1.2.3.4",
-		TTL:   300 * time.Second,
+		Type: "A",
+		Name: "a",
+		Data: "1.2.3.4",
+		TTL:  300 * time.Second,
 	},
 
 	&dns.AAAA{
@@ -71,10 +77,10 @@ var testCases = map[dns.RR]libdns.Record{
 		},
 		AAAA: net.ParseIP("1:2:3:4::"),
 	}: {
-		Type:  "AAAA",
-		Name:  "aaaa",
-		Value: "1:2:3:4::",
-		TTL:   150 * time.Second,
+		Type: "AAAA",
+		Name: "aaaa",
+		Data: "1:2:3:4::",
+		TTL:  150 * time.Second,
 	},
 
 	&dns.RFC3597{
@@ -86,10 +92,10 @@ var testCases = map[dns.RR]libdns.Record{
 		},
 		Rdata: "0d10480001",
 	}: {
-		Type:  "TYPE65534",
-		Name:  "privateuse",
-		Value: `\# 5 0d10480001`,
-		TTL:   150 * time.Second,
+		Type: "TYPE65534",
+		Name: "privateuse",
+		Data: `\# 5 0d10480001`,
+		TTL:  150 * time.Second,
 	},
 
 	&dns.HTTPS{
@@ -118,12 +124,10 @@ var testCases = map[dns.RR]libdns.Record{
 			},
 		},
 	}: {
-		Type:     "HTTPS",
-		Name:     "https",
-		TTL:      150 * time.Second,
-		Priority: 2,
-		Target:   "target.example.com.",
-		Value:    fmt.Sprintf(`alpn="h3,h2" ipv4hint="127.0.0.1" ipv6hint="::1" ech="%s"`, echString),
+		Type: "HTTPS",
+		Name: "https",
+		TTL:  150 * time.Second,
+		Data: fmt.Sprintf(`2 target.example.com. alpn="h3,h2" ipv4hint="127.0.0.1" ipv6hint="::1" ech="%s"`, echString),
 	},
 
 	&dns.MX{
@@ -136,11 +140,10 @@ var testCases = map[dns.RR]libdns.Record{
 		Preference: 10,
 		Mx:         "mail.example.com.",
 	}: {
-		Type:     "MX",
-		Name:     "mx",
-		Value:    "mail.example.com.",
-		TTL:      150 * time.Second,
-		Priority: 10,
+		Type: "MX",
+		Name: "mx",
+		TTL:  150 * time.Second,
+		Data: "10 mail.example.com.",
 	},
 
 	&dns.SRV{
@@ -155,12 +158,10 @@ var testCases = map[dns.RR]libdns.Record{
 		Port:     443,
 		Target:   "service.example.com.",
 	}: {
-		Type:     "SRV",
-		Name:     "srv",
-		Value:    "443 service.example.com.",
-		TTL:      150 * time.Second,
-		Priority: 10,
-		Weight:   20,
+		Type: "SRV",
+		Name: "srv",
+		TTL:  150 * time.Second,
+		Data: "10 20 443 service.example.com.",
 	},
 
 	// Bare name
@@ -173,10 +174,10 @@ var testCases = map[dns.RR]libdns.Record{
 		},
 		A: net.ParseIP("127.0.0.1"),
 	}: {
-		Type:  "A",
-		Name:  "",
-		Value: "127.0.0.1",
-		TTL:   300 * time.Second,
+		Type: "A",
+		Name: "@",
+		TTL:  300 * time.Second,
+		Data: "127.0.0.1",
 	},
 }
 
