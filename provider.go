@@ -31,6 +31,26 @@ func (p *Provider) setTsig(msg *dns.Msg) {
 	msg.SetTsig(p.keyNameFQDN(), dns.Fqdn(p.KeyAlg), 300, time.Now().Unix())
 }
 
+func (p *Provider) exchange(ctx context.Context, msg *dns.Msg) error {
+	m, _, err := p.client().ExchangeContext(ctx, msg, p.Server)
+	if err != nil {
+		return err
+	}
+	if m.Rcode == dns.RcodeSuccess {
+		return nil
+	}
+
+	err = fmt.Errorf("dns response error code %q (%d)", dns.RcodeToString[m.Rcode], m.Rcode)
+	if opt := m.IsEdns0(); opt != nil {
+		for _, o := range opt.Option {
+			if ede, ok := o.(*dns.EDNS0_EDE); ok {
+				err = fmt.Errorf("%s: %s (%d): %s", err, dns.ExtendedErrorCodeToString[ede.InfoCode], ede.InfoCode, ede.ExtraText)
+			}
+		}
+	}
+	return err
+}
+
 func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record, error) {
 	zone = dns.Fqdn(zone)
 
@@ -86,12 +106,9 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 	msg.Insert(rrs)
 
 	p.setTsig(&msg)
-
-	_, _, err := p.client().ExchangeContext(ctx, &msg, p.Server)
-	if err != nil {
+	if err := p.exchange(ctx, &msg); err != nil {
 		return nil, err
 	}
-
 	return records, nil
 }
 
@@ -108,12 +125,9 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 		msg.Insert([]dns.RR{rr})
 	}
 	p.setTsig(&msg)
-
-	_, _, err := p.client().ExchangeContext(ctx, &msg, p.Server)
-	if err != nil {
+	if err := p.exchange(ctx, &msg); err != nil {
 		return nil, err
 	}
-
 	return records, nil
 }
 
@@ -130,12 +144,9 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 		msg.Remove([]dns.RR{rr})
 	}
 	p.setTsig(&msg)
-
-	_, _, err := p.client().ExchangeContext(ctx, &msg, p.Server)
-	if err != nil {
+	if err := p.exchange(ctx, &msg); err != nil {
 		return nil, err
 	}
-
 	return records, nil
 }
 
