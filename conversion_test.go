@@ -123,7 +123,7 @@ var testCases = map[dns.RR]libdns.Record{
 		TTL:      150 * time.Second,
 		Priority: 2,
 		Target:   "target.example.com.",
-		Value:    fmt.Sprintf(`alpn="h3,h2" ipv4hint="127.0.0.1" ipv6hint="::1" ech="%s"`, echString),
+		Value:    fmt.Sprintf(`2 target.example.com. alpn="h3,h2" ipv4hint="127.0.0.1" ipv6hint="::1" ech="%s"`, echString),
 	},
 
 	&dns.MX{
@@ -138,7 +138,7 @@ var testCases = map[dns.RR]libdns.Record{
 	}: {
 		Type:     "MX",
 		Name:     "mx",
-		Value:    "mail.example.com.",
+		Value:    "10 mail.example.com.",
 		TTL:      150 * time.Second,
 		Priority: 10,
 	},
@@ -157,7 +157,7 @@ var testCases = map[dns.RR]libdns.Record{
 	}: {
 		Type:     "SRV",
 		Name:     "srv",
-		Value:    "443 service.example.com.",
+		Value:    "10 20 443 service.example.com.",
 		TTL:      150 * time.Second,
 		Priority: 10,
 		Weight:   20,
@@ -198,7 +198,7 @@ func TestRecordToRR(t *testing.T) {
 	for expected, record := range testCases {
 		converted, err := recordToRR(record, zone)
 		if err != nil {
-			t.Error(err)
+			t.Errorf("recordToRR %v: %v", record, err)
 		}
 		if !rrEqual(expected, converted) {
 			t.Errorf("converted rr does not match expected\nRecord: %#v\nExpected: %#v\nGot: %#v",
