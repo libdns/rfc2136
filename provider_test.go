@@ -411,6 +411,16 @@ func TestDeleteRecords(t *testing.T) {
 			IP:   netip.MustParseAddr("192.0.2.1"),
 		},
 		libdns.Address{
+			Name: "delete-address-3",
+			TTL:  300 * time.Second,
+			IP:   netip.MustParseAddr("192.0.2.1"),
+		},
+		libdns.Address{
+			Name: "delete-address-3",
+			TTL:  300 * time.Second,
+			IP:   netip.MustParseAddr("192.0.2.2"),
+		},
+		libdns.Address{
 			Name: "delete-everything",
 			TTL:  300 * time.Second,
 			IP:   netip.MustParseAddr("192.0.2.1"),
@@ -450,6 +460,10 @@ func TestDeleteRecords(t *testing.T) {
 			Name: "delete-address",
 			TTL:  300 * time.Second,
 			IP:   netip.MustParseAddr("2001:db8::1"),
+		},
+		libdns.Address{
+			Name: "delete-address-3",
+			TTL:  300 * time.Second,
 		},
 		libdns.RR{
 			Name: "delete-everything",

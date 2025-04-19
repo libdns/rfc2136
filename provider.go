@@ -142,6 +142,7 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 	msg.SetUpdate(zone)
 	for _, rec := range records {
 		libdnsRR := rec.RR()
+		// Empty `Type` => msg.RemoveName
 		if libdnsRR.Type == "" {
 			msg.RemoveName([]dns.RR{
 				&dns.ANY{
@@ -152,15 +153,24 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 			})
 			continue
 		}
+		// Empty `Data` => msg.RemoveRRset
+		if libdnsRR.Data == "" {
+			msg.RemoveRRset([]dns.RR{
+				&dns.ANY{
+					Hdr: dns.RR_Header{
+						Rrtype: dns.StringToType[libdnsRR.Type],
+						Name:   libdns.AbsoluteName(libdnsRR.Name, zone),
+					},
+				},
+			})
+			continue
+		}
+		// Everything else => msg.Remove
 		rr, err := recordToRR(rec, zone)
 		if err != nil {
 			return nil, fmt.Errorf("invalid record %+v: %w", rec, err)
 		}
-		if libdnsRR.Data == "" {
-			msg.RemoveRRset([]dns.RR{rr})
-		} else {
-			msg.Remove([]dns.RR{rr})
-		}
+		msg.Remove([]dns.RR{rr})
 	}
 	p.setTsig(&msg)
 	if err := p.exchange(ctx, &msg); err != nil {
