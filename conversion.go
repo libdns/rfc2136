@@ -2,7 +2,6 @@ package rfc2136
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
 
@@ -11,58 +10,43 @@ import (
 )
 
 func recordToRR(rec libdns.Record, zone string) (dns.RR, error) {
-	rrType := dns.StringToType[rec.Type]
-	rrConstructor := dns.TypeToRR[rrType]
-	var rr dns.RR
-	if rrConstructor == nil {
-		rr = new(dns.RFC3597)
-	} else {
-		rr = rrConstructor()
+	libdnsRR := rec.RR()
+
+	if !strings.HasSuffix(zone, ".") {
+		zone += "."
 	}
 
-	// Create a zone file line representing the record. We're using reflection
-	// so that we can automatically support any new RR types that define these
-	// fields.
-	name := rec.Name
-	if name == "" {
-		name = "@"
+	data := libdnsRR.Data
+	if libdnsRR.Type == "TXT" {
+		// Chunk the data into 255 character segments
+		runes := []rune(data)
+		data = ""
+		for i := 0; i < len(runes); i += 255 {
+			data += fmt.Sprintf("%q ", string(runes[i:min(i+255, len(runes))]))
+		}
 	}
 
-	zoneLine := fmt.Sprintf("%s %d IN %s ", name, int(rec.TTL.Seconds()), rec.Type)
+	zoneFile := fmt.Sprintf(
+		"$ORIGIN %s\n%s %d IN %s %s",
+		zone,
+		libdnsRR.Name,
+		int(libdnsRR.TTL.Seconds()),
+		libdnsRR.Type,
+		data,
+	)
 
-	priority := reflect.ValueOf(rr).Elem().FieldByName("Priority")
-	if !priority.IsValid() {
-		priority = reflect.ValueOf(rr).Elem().FieldByName("Preference")
+	dnsRR, err := dns.NewRR(zoneFile)
+	if err != nil {
+		return nil, err
 	}
 
-	if priority.IsValid() {
-		zoneLine += fmt.Sprintf("%d ", rec.Priority)
-	}
-
-	weight := reflect.ValueOf(rr).Elem().FieldByName("Weight")
-	if weight.IsValid() {
-		zoneLine += fmt.Sprintf("%d ", rec.Weight)
-	}
-
-	target := reflect.ValueOf(rr).Elem().FieldByName("Target")
-	if target.IsValid() {
-		zoneLine += fmt.Sprintf("%s ", rec.Target)
-	}
-
-	if rec.Value != "" {
-		zoneLine += rec.Value
-	}
-	zoneLine = strings.TrimSuffix(zoneLine, " ") + "\n"
-
-	zp := dns.NewZoneParser(strings.NewReader(zoneLine), zone, "")
-	rr, _ = zp.Next()
-	return rr, zp.Err()
+	return dnsRR, nil
 }
 
-func recordFromRR(rr dns.RR, zone string) libdns.Record {
+func recordFromRR(rr dns.RR, zone string) libdns.RR {
 	hdr := rr.Header()
 
-	rec := libdns.Record{
+	rec := libdns.RR{
 		Name: libdns.RelativeName(hdr.Name, zone),
 		TTL:  time.Duration(hdr.Ttl) * time.Second,
 	}
@@ -82,35 +66,12 @@ func recordFromRR(rr dns.RR, zone string) libdns.Record {
 
 	rec.Type = typ
 
-	// Parse priority, weight, and target from the record value. We're using
-	// reflection so that we can automatically support any new RR types that
-	// define these fields.
-	priority := reflect.ValueOf(rr).Elem().FieldByName("Priority")
-	if !priority.IsValid() {
-		priority = reflect.ValueOf(rr).Elem().FieldByName("Preference")
-	}
-
-	if priority.IsValid() {
-		priority := priority.Uint()
-		rec.Priority = uint(priority)
-		hdrStr += fmt.Sprintf("%d ", priority)
-	}
-
-	weight := reflect.ValueOf(rr).Elem().FieldByName("Weight")
-	if weight.IsValid() {
-		weight := weight.Uint()
-		rec.Weight = uint(weight)
-		hdrStr += fmt.Sprintf("%d ", weight)
-	}
-
-	target := reflect.ValueOf(rr).Elem().FieldByName("Target")
-	if target.IsValid() && typ != "SRV" {
-		rec.Target = target.String()
-		hdrStr += fmt.Sprintf("%s ", rec.Target)
-	}
-
 	// Get the value from the record string representation.
-	rec.Value = strings.TrimPrefix(rr.String(), hdrStr)
+	if txt, ok := rr.(*dns.TXT); ok {
+		rec.Data = strings.Join(txt.Txt, "")
+	} else {
+		rec.Data = strings.TrimPrefix(rr.String(), hdrStr)
+	}
 
 	return rec
 }
