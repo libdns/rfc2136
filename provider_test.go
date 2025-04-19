@@ -6,7 +6,6 @@ import (
 	"net/netip"
 	"os"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 
@@ -64,47 +63,6 @@ func initializeProvider() (context.Context, rfc2136.Provider, string, error) {
 	return ctx, provider, zone, nil
 }
 
-// TODO: Remove this function when (if?) the upstream libdns function is
-// corrected.
-func idempotentAbsoluteName(name, zone string) string {
-	if zone == "" {
-		return strings.Trim(name, ".")
-	}
-	if name == "" || name == "@" {
-		return zone
-	}
-	if strings.HasSuffix(name, ".") {
-		// Already a FQDN, so just return it
-		return name
-	}
-	return name + "." + zone
-}
-
-func makeAbsolute(records []libdns.Record, zone string) []libdns.Record {
-	for i, record := range records {
-		switch record := record.(type) {
-		case libdns.CNAME:
-			record.Target = idempotentAbsoluteName(record.Target, zone)
-			records[i] = record
-		case libdns.MX:
-			record.Target = idempotentAbsoluteName(record.Target, zone)
-			records[i] = record
-		case libdns.NS:
-			record.Target = idempotentAbsoluteName(record.Target, zone)
-			records[i] = record
-		case libdns.SRV:
-			record.Target = idempotentAbsoluteName(record.Target, zone)
-			records[i] = record
-		case libdns.ServiceBinding:
-			record.Target = idempotentAbsoluteName(record.Target, zone)
-			records[i] = record
-		default:
-			records[i] = record
-		}
-	}
-	return records
-}
-
 func compareSVCB(t *testing.T, targetRecord, foundRecord libdns.ServiceBinding) bool {
 	if targetRecord.Name != foundRecord.Name {
 		return false
@@ -127,9 +85,6 @@ func compareSVCB(t *testing.T, targetRecord, foundRecord libdns.ServiceBinding) 
 func compareRecords(t *testing.T, expectedRecords, actualRecords []libdns.Record, zone string) {
 	expectedRecords = filterSOA_NS(expectedRecords, zone)
 	actualRecords = filterSOA_NS(actualRecords, zone)
-
-	expectedRecords = makeAbsolute(expectedRecords, zone)
-	actualRecords = makeAbsolute(actualRecords, zone)
 
 	for _, expectedRecord := range expectedRecords {
 		found := false
@@ -204,7 +159,7 @@ func TestAllTypes(t *testing.T) {
 			TTL:      300 * time.Second,
 			Scheme:   "https",
 			Priority: 1,
-			Target:   "append-address",
+			Target:   "append-address." + zone,
 			Params: libdns.SvcParams{
 				"alpn":     {"h2", "h3"},
 				"ipv4hint": {"192.0.2.1", "192.0.2.2"},
