@@ -24,4 +24,4 @@ jobs:
         RFC2136_KEYNAME: ${{ secrets.RFC2136_KEYNAME }}
         RFC2136_SERVER:  ${{ secrets.RFC2136_SERVER  }}
         RFC2136_ZONE:    ${{ secrets.RFC2136_ZONE    }}
-      run: find . -name go.mod -execdir go test ./... \;
+      run: find . -name go.mod -execdir sh -c 'go test -v ./... || kill $PPID' \;
