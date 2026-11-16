@@ -13,3 +13,7 @@ Example configuration
 		KeyAlg:  "hmac-sha256",
 		Server:  "1.2.3.4:53",
 	}
+
+The optional `Net` field selects the transport protocol for dynamic updates:
+`"tcp"` (default) or `"udp"`. Zone transfers (`GetRecords`) always use TCP,
+as required by [RFC 5936](https://datatracker.ietf.org/doc/html/rfc5936).
