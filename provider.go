@@ -14,17 +14,36 @@ type Provider struct {
 	KeyAlg  string `json:"key_alg,omitempty"`
 	Key     string `json:"key,omitempty"`
 	Server  string `json:"server,omitempty"`
+	// Net is the transport protocol used for dynamic updates:
+	// "tcp" (default) or "udp". Zone transfers (GetRecords) always
+	// use TCP as required by RFC 5936.
+	Net string `json:"net,omitempty"`
 }
 
 func (p *Provider) keyNameFQDN() string {
 	return dns.Fqdn(p.KeyName)
 }
 
-func (p *Provider) client() *dns.Client {
+// net returns the configured transport protocol, defaulting to "tcp".
+func (p *Provider) net() string {
+	if p.Net == "" {
+		return "tcp"
+	}
+	return p.Net
+}
+
+func (p *Provider) client() (*dns.Client, error) {
+	net := p.net()
+	switch net {
+	case "tcp", "udp":
+	default:
+		return nil, fmt.Errorf("invalid net %q: must be \"tcp\" or \"udp\"", p.Net)
+	}
+
 	return &dns.Client{
 		TsigSecret: map[string]string{p.keyNameFQDN(): p.Key},
-		Net:        "tcp",
-	}
+		Net:        net,
+	}, nil
 }
 
 func (p *Provider) setTsig(msg *dns.Msg) {
@@ -32,7 +51,11 @@ func (p *Provider) setTsig(msg *dns.Msg) {
 }
 
 func (p *Provider) exchange(ctx context.Context, msg *dns.Msg) error {
-	m, _, err := p.client().ExchangeContext(ctx, msg, p.Server)
+	client, err := p.client()
+	if err != nil {
+		return err
+	}
+	m, _, err := client.ExchangeContext(ctx, msg, p.Server)
 	if err != nil {
 		return err
 	}
@@ -54,7 +77,13 @@ func (p *Provider) exchange(ctx context.Context, msg *dns.Msg) error {
 func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record, error) {
 	zone = dns.Fqdn(zone)
 
-	conn, err := p.client().DialContext(ctx, p.Server)
+	// Zone transfers (AXFR) are only defined over TCP (RFC 5936),
+	// so ignore the configured transport here.
+	client := &dns.Client{
+		TsigSecret: map[string]string{p.keyNameFQDN(): p.Key},
+		Net:        "tcp",
+	}
+	conn, err := client.DialContext(ctx, p.Server)
 	if err != nil {
 		return nil, fmt.Errorf("dial: %w", err)
 	}

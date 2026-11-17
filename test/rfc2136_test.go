@@ -14,6 +14,7 @@ func TestRfc2136Provider(t *testing.T) {
 		KeyAlg:  os.Getenv("RFC2136_KEYALG"),
 		Key:     os.Getenv("RFC2136_KEY"),
 		Server:  os.Getenv("RFC2136_SERVER"),
+		Net:     os.Getenv("RFC2136_NET"),
 	}
 	testZone := os.Getenv("RFC2136_ZONE")
 
